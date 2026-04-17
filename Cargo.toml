@@ -1,0 +1,14 @@
+[package]
+name = "yoz"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "yoz"
+path = "src/main.rs"
+
+[dependencies]
+crossterm = "0.28"
+encoding_rs = "0.8"
+chardetng = "0.1"
+arboard = "3"
