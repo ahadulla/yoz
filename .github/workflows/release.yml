@@ -1,0 +1,113 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+            artifact: yoz.exe
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            artifact: yoz
+          - target: x86_64-apple-darwin
+            os: macos-latest
+            artifact: yoz
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            artifact: yoz
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar czf ../../../yoz-${{ matrix.target }}.tar.gz ${{ matrix.artifact }}
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd target/${{ matrix.target }}/release
+          7z a ../../../yoz-${{ matrix.target }}.zip ${{ matrix.artifact }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: yoz-${{ matrix.target }}
+          path: yoz-${{ matrix.target }}.*
+
+  deb:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-deb
+        run: cargo install cargo-deb
+      - name: Build .deb
+        run: cargo deb
+      - name: Upload .deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: yoz-deb
+          path: target/debian/*.deb
+
+  msi:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install cargo-wix
+        run: cargo install cargo-wix
+      - name: Init WiX
+        run: cargo wix init --force
+      - name: Build .msi
+        run: cargo wix --no-build --nocapture
+      - name: Build release first
+        run: cargo build --release
+      - name: Build .msi
+        run: cargo wix --no-build --nocapture
+      - name: Upload .msi
+        uses: actions/upload-artifact@v4
+        with:
+          name: yoz-msi
+          path: target/wix/*.msi
+
+  release:
+    needs: [build, deb, msi]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/**/*.tar.gz
+            artifacts/**/*.zip
+            artifacts/**/*.deb
+            artifacts/**/*.msi

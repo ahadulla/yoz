@@ -1,0 +1,18 @@
+# This manifest is a template. Update URLs and hash after each release.
+# Submit to: https://github.com/microsoft/winget-pkgs
+# Docs: https://learn.microsoft.com/en-us/windows/package-manager/package/manifest
+
+PackageIdentifier: ahadulla.yoz
+PackageVersion: 0.1.0
+PackageName: yoz
+Publisher: Ahadulla
+License: MIT
+ShortDescription: A simple, fast terminal text editor inspired by nano
+PackageUrl: https://github.com/ahadulla/yoz
+Installers:
+  - Architecture: x64
+    InstallerType: msi
+    InstallerUrl: https://github.com/ahadulla/yoz/releases/download/v0.1.0/yoz-0.1.0-x86_64.msi
+    InstallerSha256: # UPDATE after release build
+ManifestType: singleton
+ManifestVersion: 1.6.0
