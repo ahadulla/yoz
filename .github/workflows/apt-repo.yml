@@ -1,0 +1,113 @@
+name: Update APT Repository
+
+on:
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  update-repo:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get latest release tag
+        id: release
+        run: |
+          TAG=$(gh release list --limit 1 --json tagName -q '.[0].tagName')
+          VERSION=${TAG#v}
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Download .deb from release
+        run: |
+          mkdir -p apt-repo/pool/main
+          gh release download "${{ steps.release.outputs.tag }}" \
+            --pattern "*.deb" \
+            --dir apt-repo/pool/main
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Import GPG key
+        run: |
+          echo "${{ secrets.GPG_PRIVATE_KEY }}" | gpg --batch --import
+
+      - name: Copy public key
+        run: cp packaging/apt/KEY.gpg apt-repo/KEY.gpg
+
+      - name: Generate APT repo metadata
+        run: |
+          cd apt-repo
+          mkdir -p dists/stable/main/binary-amd64
+
+          # Generate Packages file
+          dpkg-scanpackages --arch amd64 pool/ > dists/stable/main/binary-amd64/Packages
+          gzip -k dists/stable/main/binary-amd64/Packages
+
+          # Generate Release file
+          cd dists/stable
+          cat > Release <<EOF
+          Origin: yoz
+          Label: yoz
+          Suite: stable
+          Codename: stable
+          Architectures: amd64
+          Components: main
+          Description: yoz terminal text editor apt repository
+          EOF
+          sed -i 's/^          //' Release
+
+          # Add hashes to Release
+          apt-ftparchive release . >> Release
+
+          # Sign Release file
+          gpg --batch --yes --armor --detach-sign -o Release.gpg Release
+          gpg --batch --yes --clearsign -o InRelease Release
+
+      - name: Create index page
+        run: |
+          cat > apt-repo/index.html <<'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head><title>yoz APT Repository</title></head>
+          <body>
+          <h1>yoz APT Repository</h1>
+          <h2>Install</h2>
+          <pre>
+          curl -fsSL https://ahadulla.github.io/yoz/KEY.gpg | sudo gpg --dearmor -o /usr/share/keyrings/yoz.gpg
+          echo "deb [signed-by=/usr/share/keyrings/yoz.gpg] https://ahadulla.github.io/yoz stable main" | sudo tee /etc/apt/sources.list.d/yoz.list
+          sudo apt update
+          sudo apt install yoz
+          </pre>
+          </body>
+          </html>
+          EOF
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: apt-repo
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
