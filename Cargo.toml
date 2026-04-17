@@ -2,6 +2,14 @@
 name = "yoz"
 version = "0.1.0"
 edition = "2024"
+authors = ["Ahadulla <ahadullajon@gmail.com>"]
+description = "A simple, fast terminal text editor inspired by nano"
+license = "MIT"
+repository = "https://github.com/ahadulla/yoz"
+homepage = "https://github.com/ahadulla/yoz"
+readme = "README.md"
+keywords = ["editor", "terminal", "tui", "text-editor", "cli"]
+categories = ["command-line-utilities", "text-editors"]
 
 [[bin]]
 name = "yoz"
@@ -12,3 +20,26 @@ crossterm = "0.28"
 encoding_rs = "0.8"
 chardetng = "0.1"
 arboard = "3"
+
+[profile.release]
+lto = true
+strip = true
+codegen-units = 1
+opt-level = "z"
+
+[package.metadata.deb]
+maintainer = "Ahadulla <ahadullajon@gmail.com>"
+copyright = "2026, Ahadulla"
+extended-description = "A simple, fast terminal text editor written in Rust. Nano-style, no modal editing."
+section = "editors"
+priority = "optional"
+assets = [
+    ["target/release/yoz", "usr/bin/", "755"],
+    ["README.md", "usr/share/doc/yoz/", "644"],
+]
+
+[package.metadata.wix]
+upgrade-guid = "A1B2C3D4-E5F6-7890-ABCD-EF1234567890"
+path-guid = "B2C3D4E5-F6A7-8901-BCDE-F12345678901"
+license = false
+eula = false
