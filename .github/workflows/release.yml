@@ -75,14 +75,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      - name: Build release
+        run: cargo build --release
       - name: Install cargo-wix
         run: cargo install cargo-wix
       - name: Init WiX
         run: cargo wix init --force
-      - name: Build .msi
-        run: cargo wix --no-build --nocapture
-      - name: Build release first
-        run: cargo build --release
       - name: Build .msi
         run: cargo wix --no-build --nocapture
       - name: Upload .msi
